@@ -1,0 +1,56 @@
+name: Python Package CI/CD
+
+on:
+  push:
+    branches:
+      - main  # Trigger the workflow on push to the `main` branch
+  pull_request:
+    branches:
+      - main  # Trigger the workflow on pull requests targeting `main`
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Specify the environment for the job
+
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9]  # Test against multiple versions of Python
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt  # Install the dependencies from your `requirements.txt`
+
+      # Comment out or remove the following step to skip tests
+      # - name: Run tests with pytest
+      #   run: |
+      #     pytest  # Run your tests
+
+      - name: Build the package
+        run: |
+          python setup.py sdist bdist_wheel  # Build the source and wheel distribution files
+
+      - name: Upload to Test PyPI (optional)
+        if: github.ref == 'refs/heads/main'  # Only upload when pushing to `main`
+        env:
+          TWINE_USERNAME: ${{ secrets.TEST_PYPI_USERNAME }}  # Set these secrets in GitHub repository settings
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_PASSWORD }}
+        run: |
+          twine upload --repository-url https://test.pypi.org/legacy/ dist/*  # Upload to Test PyPI
+
+      - name: Upload to PyPI (production)
+        if: github.ref == 'refs/heads/main'  # Only upload to production when pushing to `main`
+        env:
+          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}  # Set these secrets in GitHub repository settings
+          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        run: |
+          twine upload dist/*  # Upload to PyPI
